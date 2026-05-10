@@ -35,3 +35,40 @@ def test_find_nvidia_pci_address_not_found(tmp_path):
     (dev / "vendor").write_text("0x8086\n")
     (dev / "class").write_text("0x030000\n")
     assert find_nvidia_pci_address(sysfs_base=str(tmp_path)) is None
+
+
+import subprocess
+from unittest.mock import MagicMock, patch
+from nvidia_state_tray import read_power_draw
+
+
+def test_read_power_draw_returns_float():
+    mock = MagicMock()
+    mock.stdout = "15.36\n"
+    with patch("nvidia_state_tray.subprocess.run", return_value=mock):
+        assert read_power_draw() == pytest.approx(15.36)
+
+
+def test_read_power_draw_na_returns_none():
+    mock = MagicMock()
+    mock.stdout = "[N/A]\n"
+    with patch("nvidia_state_tray.subprocess.run", return_value=mock):
+        assert read_power_draw() is None
+
+
+def test_read_power_draw_empty_returns_none():
+    mock = MagicMock()
+    mock.stdout = "\n"
+    with patch("nvidia_state_tray.subprocess.run", return_value=mock):
+        assert read_power_draw() is None
+
+
+def test_read_power_draw_smi_missing():
+    with patch("nvidia_state_tray.subprocess.run", side_effect=FileNotFoundError):
+        assert read_power_draw() is None
+
+
+def test_read_power_draw_timeout():
+    with patch("nvidia_state_tray.subprocess.run",
+               side_effect=subprocess.TimeoutExpired("nvidia-smi", 2)):
+        assert read_power_draw() is None

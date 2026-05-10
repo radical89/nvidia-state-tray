@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """nvidia-state-tray — NVIDIA GPU state indicator for the system tray."""
 
+import subprocess
 from pathlib import Path
 
 
@@ -25,3 +26,18 @@ def find_nvidia_pci_address(sysfs_base: str = "/sys/bus/pci/devices") -> str | N
         except (FileNotFoundError, PermissionError):
             continue
     return None
+
+
+def read_power_draw() -> float | None:
+    """Query nvidia-smi for current power draw in watts. Returns None on any failure."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=power.draw", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=2,
+        )
+        val = result.stdout.strip().split("\n")[0].strip()
+        if not val or val == "[N/A]":
+            return None
+        return float(val)
+    except (subprocess.SubprocessError, ValueError, FileNotFoundError):
+        return None
