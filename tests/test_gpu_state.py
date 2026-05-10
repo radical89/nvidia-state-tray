@@ -1,9 +1,20 @@
 # tests/test_gpu_state.py
 import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-from nvidia_state_tray import find_nvidia_pci_address, read_power_draw, read_power_state
+from PyQt6.QtGui import QColor, QIcon
+from PyQt6.QtWidgets import QApplication
+from nvidia_state_tray import (
+    COLOR_ACTIVE,
+    COLOR_COLD,
+    COLOR_ERROR,
+    find_nvidia_pci_address,
+    make_icon,
+    read_power_draw,
+    read_power_state,
+)
 
 
 def test_read_power_state_d3cold(tmp_path):
@@ -70,12 +81,6 @@ def test_read_power_draw_timeout():
     with patch("nvidia_state_tray.subprocess.run",
                side_effect=subprocess.TimeoutExpired("nvidia-smi", 2)):
         assert read_power_draw() is None
-
-
-import sys
-from PyQt6.QtGui import QColor, QIcon
-from PyQt6.QtWidgets import QApplication
-from nvidia_state_tray import COLOR_ACTIVE, COLOR_COLD, COLOR_ERROR, make_icon
 
 
 @pytest.fixture(scope="module")
