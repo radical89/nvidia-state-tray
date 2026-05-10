@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """nvidia-state-tray — NVIDIA GPU state indicator for the system tray."""
 
+import argparse
 import subprocess
+import sys
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 
 def read_power_state(pci_address: str, sysfs_base: str = "/sys/bus/pci/devices") -> str:
@@ -71,3 +73,62 @@ def make_icon(color: QColor, label: str = "") -> QIcon:
         painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, label)
     painter.end()
     return QIcon(pixmap)
+
+
+class GpuStateTray:
+    def __init__(self, pci_address: str, interval_ms: int = 3000) -> None:
+        self.pci_address = pci_address
+        self.app = QApplication.instance() or QApplication(sys.argv)
+        self.app.setQuitOnLastWindowClosed(False)
+        self.tray = QSystemTrayIcon()
+        menu = QMenu()
+        menu.addAction("Quit", self.app.quit)
+        self.tray.setContextMenu(menu)
+        self.tray.show()
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._update)
+        self.timer.start(interval_ms)
+        self._update()
+
+    def _update(self) -> None:
+        state = read_power_state(self.pci_address)
+        if state == "error":
+            self.tray.setIcon(make_icon(COLOR_ERROR, "?"))
+            self.tray.setToolTip(f"RTX 5080 — sysfs path not found ({self.pci_address})")
+        elif state == "D3cold":
+            self.tray.setIcon(make_icon(COLOR_COLD))
+            self.tray.setToolTip("RTX 5080 — D3cold (powered off)")
+        else:
+            watts = read_power_draw()
+            label = f"{int(watts)}W" if watts is not None else "?W"
+            tooltip_watts = f"{watts:.1f} W" if watts is not None else "unknown"
+            self.tray.setIcon(make_icon(COLOR_ACTIVE, label))
+            self.tray.setToolTip(f"RTX 5080 — Active · {tooltip_watts}")
+
+    def run(self) -> int:
+        return self.app.exec()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="NVIDIA GPU state system tray indicator")
+    parser.add_argument(
+        "--pci-address", default=None,
+        help="PCI address of the GPU, e.g. 0000:02:00.0 (auto-detected if omitted)",
+    )
+    parser.add_argument(
+        "--interval", type=int, default=3,
+        help="Poll interval in seconds (default: 3)",
+    )
+    args = parser.parse_args()
+
+    pci_address = args.pci_address or find_nvidia_pci_address()
+    if not pci_address:
+        print("Error: could not find an NVIDIA GPU. Use --pci-address.", file=sys.stderr)
+        sys.exit(1)
+
+    tray = GpuStateTray(pci_address, interval_ms=args.interval * 1000)
+    sys.exit(tray.run())
+
+
+if __name__ == "__main__":
+    main()
