@@ -70,3 +70,32 @@ def test_read_power_draw_timeout():
     with patch("nvidia_state_tray.subprocess.run",
                side_effect=subprocess.TimeoutExpired("nvidia-smi", 2)):
         assert read_power_draw() is None
+
+
+import sys
+from PyQt6.QtGui import QColor, QIcon
+from PyQt6.QtWidgets import QApplication
+from nvidia_state_tray import COLOR_ACTIVE, COLOR_COLD, COLOR_ERROR, make_icon
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    return QApplication.instance() or QApplication(sys.argv)
+
+
+def test_make_icon_cold_returns_qicon(qapp):
+    icon = make_icon(COLOR_COLD)
+    assert isinstance(icon, QIcon)
+    assert not icon.isNull()
+
+
+def test_make_icon_active_with_label(qapp):
+    icon = make_icon(COLOR_ACTIVE, "15W")
+    assert isinstance(icon, QIcon)
+    assert not icon.isNull()
+
+
+def test_make_icon_error_state(qapp):
+    icon = make_icon(COLOR_ERROR, "?")
+    assert isinstance(icon, QIcon)
+    assert not icon.isNull()
