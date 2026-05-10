@@ -10,8 +10,12 @@ from nvidia_state_tray import (
     COLOR_ACTIVE,
     COLOR_COLD,
     COLOR_ERROR,
+    IDLE_WATTS_THRESHOLD,
+    POLL_FAST_MS,
+    POLL_IDLE_MS,
     find_nvidia_pci_address,
     make_icon,
+    next_poll_ms,
     read_power_draw,
     read_power_state,
 )
@@ -104,3 +108,23 @@ def test_make_icon_error_state(qapp):
     icon = make_icon(COLOR_ERROR, "?")
     assert isinstance(icon, QIcon)
     assert not icon.isNull()
+
+
+def test_next_poll_d3cold_returns_idle():
+    assert next_poll_ms("D3cold", None) == POLL_IDLE_MS
+
+
+def test_next_poll_error_returns_idle():
+    assert next_poll_ms("error", None) == POLL_IDLE_MS
+
+
+def test_next_poll_high_watts_returns_fast():
+    assert next_poll_ms("D0", IDLE_WATTS_THRESHOLD + 1) == POLL_FAST_MS
+
+
+def test_next_poll_low_watts_returns_idle():
+    assert next_poll_ms("D0", IDLE_WATTS_THRESHOLD) == POLL_IDLE_MS
+
+
+def test_next_poll_none_watts_returns_idle():
+    assert next_poll_ms("D0", None) == POLL_IDLE_MS
