@@ -1,0 +1,12 @@
+[Unit]
+Description=NVIDIA GPU State System Tray Indicator
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/nvidia-state-tray
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
