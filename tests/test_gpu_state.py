@@ -4,7 +4,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PyQt6.QtGui import QColor, QIcon
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
 from nvidia_state_tray import (
     COLOR_ACTIVE,
