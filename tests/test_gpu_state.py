@@ -1,6 +1,9 @@
 # tests/test_gpu_state.py
+import subprocess
+from unittest.mock import MagicMock, patch
+
 import pytest
-from nvidia_state_tray import find_nvidia_pci_address, read_power_state
+from nvidia_state_tray import find_nvidia_pci_address, read_power_draw, read_power_state
 
 
 def test_read_power_state_d3cold(tmp_path):
@@ -35,11 +38,6 @@ def test_find_nvidia_pci_address_not_found(tmp_path):
     (dev / "vendor").write_text("0x8086\n")
     (dev / "class").write_text("0x030000\n")
     assert find_nvidia_pci_address(sysfs_base=str(tmp_path)) is None
-
-
-import subprocess
-from unittest.mock import MagicMock, patch
-from nvidia_state_tray import read_power_draw
 
 
 def test_read_power_draw_returns_float():

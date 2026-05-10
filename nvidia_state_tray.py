@@ -39,5 +39,5 @@ def read_power_draw() -> float | None:
         if not val or val == "[N/A]":
             return None
         return float(val)
-    except (subprocess.SubprocessError, ValueError, FileNotFoundError):
+    except (subprocess.SubprocessError, ValueError, OSError):
         return None
