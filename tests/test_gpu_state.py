@@ -11,6 +11,7 @@ from nvidia_state_tray import (
     COLOR_COLD,
     COLOR_ERROR,
     IDLE_WATTS_THRESHOLD,
+    MEM_LOCK_CLOCK_MHZ,
     POLL_FAST_MS,
     POLL_IDLE_MS,
     find_nvidia_pci_address,
@@ -18,6 +19,7 @@ from nvidia_state_tray import (
     next_poll_ms,
     read_power_draw,
     read_power_state,
+    set_mem_clock_lock,
 )
 
 
@@ -128,3 +130,43 @@ def test_next_poll_low_watts_returns_idle():
 
 def test_next_poll_none_watts_returns_idle():
     assert next_poll_ms("D0", None) == POLL_IDLE_MS
+
+
+def test_set_mem_clock_lock_enable_runs_lmc():
+    mock = MagicMock()
+    mock.returncode = 0
+    with patch("nvidia_state_tray.subprocess.run", return_value=mock) as run:
+        assert set_mem_clock_lock(True) is True
+    cmd = run.call_args.args[0]
+    assert cmd[:3] == ["sudo", "-n", "nvidia-smi"]
+    assert "-lmc" in cmd
+    assert f"{MEM_LOCK_CLOCK_MHZ},{MEM_LOCK_CLOCK_MHZ}" in cmd
+
+
+def test_set_mem_clock_lock_disable_runs_rmc():
+    mock = MagicMock()
+    mock.returncode = 0
+    with patch("nvidia_state_tray.subprocess.run", return_value=mock) as run:
+        assert set_mem_clock_lock(False) is True
+    cmd = run.call_args.args[0]
+    assert cmd[:3] == ["sudo", "-n", "nvidia-smi"]
+    assert "-rmc" in cmd
+    assert "-lmc" not in cmd
+
+
+def test_set_mem_clock_lock_nonzero_exit_returns_false():
+    mock = MagicMock()
+    mock.returncode = 1
+    with patch("nvidia_state_tray.subprocess.run", return_value=mock):
+        assert set_mem_clock_lock(True) is False
+
+
+def test_set_mem_clock_lock_sudo_missing_returns_false():
+    with patch("nvidia_state_tray.subprocess.run", side_effect=FileNotFoundError):
+        assert set_mem_clock_lock(True) is False
+
+
+def test_set_mem_clock_lock_timeout_returns_false():
+    with patch("nvidia_state_tray.subprocess.run",
+               side_effect=subprocess.TimeoutExpired("nvidia-smi", 5)):
+        assert set_mem_clock_lock(False) is False

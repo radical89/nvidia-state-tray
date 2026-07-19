@@ -58,6 +58,32 @@ POLL_FAST_MS = 3_000   # GPU is actively working
 POLL_IDLE_MS = 15_000  # GPU is off or low-power — give driver room to enter D3cold
 IDLE_WATTS_THRESHOLD = 8.0
 
+# Anti-stutter: GPU memory-clock switches stall the whole machine ~4-5 ms on
+# this driver (open-gpu-kernel-modules#1248); pinning the mem clock while
+# gaming stops the audio blips and frame hitches. Needs a sudoers rule:
+#   karlos ALL=(root) NOPASSWD: /usr/bin/nvidia-smi -lmc 14001\,14001, /usr/bin/nvidia-smi -rmc
+MEM_LOCK_CLOCK_MHZ = 14001
+
+
+def set_mem_clock_lock(enabled: bool) -> bool:
+    """Lock (or unlock) the GPU memory clock via passwordless sudo.
+
+    Returns True on success. False means the sudoers rule is missing,
+    nvidia-smi failed, or sudo/nvidia-smi is unavailable.
+    """
+    if enabled:
+        args = ["-lmc", f"{MEM_LOCK_CLOCK_MHZ},{MEM_LOCK_CLOCK_MHZ}"]
+    else:
+        args = ["-rmc"]
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "nvidia-smi", *args],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.returncode == 0
+    except (subprocess.SubprocessError, OSError):
+        return False
+
 
 def next_poll_ms(state: str, watts: float | None, fast_ms: int = POLL_FAST_MS) -> int:
     """Return the next poll interval based on GPU state.
@@ -101,6 +127,10 @@ class GpuStateTray:
         self.app.setQuitOnLastWindowClosed(False)
         self.tray = QSystemTrayIcon()
         menu = QMenu()
+        self.lock_action = menu.addAction("Lock mem clock (anti-stutter)")
+        self.lock_action.setCheckable(True)
+        self.lock_action.triggered.connect(self._on_lock_toggled)
+        menu.addSeparator()
         menu.addAction("Quit", self.app.quit)
         self.tray.setContextMenu(menu)
         self.tray.show()
@@ -108,6 +138,24 @@ class GpuStateTray:
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._update)
         self._update()
+
+    def _on_lock_toggled(self, checked: bool) -> None:
+        if set_mem_clock_lock(checked):
+            state = "locked" if checked else "unlocked"
+            self.tray.showMessage(
+                "GPU memory clock",
+                f"Memory clock {state}"
+                + (f" at {MEM_LOCK_CLOCK_MHZ} MHz" if checked else ""),
+                QSystemTrayIcon.MessageIcon.Information, 3000,
+            )
+        else:
+            self.lock_action.setChecked(not checked)
+            self.tray.showMessage(
+                "GPU memory clock",
+                "nvidia-smi failed — is the sudoers NOPASSWD rule installed? "
+                "(see header of nvidia_state_tray.py)",
+                QSystemTrayIcon.MessageIcon.Warning, 6000,
+            )
 
     def _update(self) -> None:
         state = read_power_state(self.pci_address)

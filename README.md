@@ -47,6 +47,24 @@ The icon will appear in your system tray within a few seconds.
 bash uninstall.sh
 ```
 
+## Memory-clock lock (anti-stutter)
+
+Right-click the tray icon → **Lock mem clock (anti-stutter)** pins the GPU
+memory clock at 14001 MHz. On this driver every memory-clock switch stalls
+the whole machine for ~4–5 ms ([open-gpu-kernel-modules#1248]); pinning the
+clock stops audio blips and frame hitches while gaming. Unlock when done —
+a pinned memory clock raises idle power draw.
+
+Requires a passwordless sudo rule (edit the user as needed):
+
+```bash
+echo 'karlos ALL=(root) NOPASSWD: /usr/bin/nvidia-smi -lmc 14001\,14001, /usr/bin/nvidia-smi -rmc' | sudo tee /etc/sudoers.d/nvidia-mem-lock
+sudo chmod 440 /etc/sudoers.d/nvidia-mem-lock
+sudo visudo -c
+```
+
+[open-gpu-kernel-modules#1248]: https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1248
+
 ## Manual usage
 
 ```bash
